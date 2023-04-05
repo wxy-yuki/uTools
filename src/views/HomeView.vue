@@ -10,27 +10,33 @@
       @click="showDiv = !showDiv"
     >点击显示/隐藏</a-button>
     <div v-show="showDiv">
-      <div class="yuki-holiday">
-        <h1>请编辑你的法定节假日</h1>
+      <div v-for="index in 2">
+        <h1>请编辑你的{{ dataMap[index].title }}</h1>
         <a-button
           type="primary"
-          @click="addItem(holidays)"
+          @click="addItem(dataMap[index].list)"
         >新增</a-button>
         <a-table
           class="mt20"
-          :dataSource="holidays"
+          :dataSource="dataMap[index].list"
           :columns="columns"
           :pagination="false"
         >
           <template #bodyCell="{ record, column }">
             <template v-if="column.key === 'operation'">
               <a-button
+                v-show="isEdit && record.isEdit"
+                type="text"
+                primary
+                @Click="saveRow(record)"
+              >保存</a-button>
+              <a-button
                 type="text"
                 danger
-                @Click="deleteRow(holidays, record)"
+                @Click="deleteRow(dataMap[index].list, record)"
               >删除</a-button>
             </template>
-            <template v-if="column.dataIndex === 'date' && !record.date">
+            <template v-if="column.dataIndex === 'date' && isEdit">
               <div>
                 <a-date-picker
                   v-model:value="record.date"
@@ -39,7 +45,7 @@
                 />
               </div>
             </template>
-            <template v-if="column.dataIndex === 'title' && !record.title">
+            <template v-if="column.dataIndex === 'title' && isEdit">
               <div>
                 <a-input
                   v-model:value="record.title"
@@ -49,50 +55,7 @@
             </template>
           </template>
         </a-table>
-
       </div>
-      <div class="yuki-work-day">
-        <h1>请编辑你的额外工作日</h1>
-        <a-button
-          type="primary"
-          @click="addItem(workDays)"
-        >新增</a-button>
-        <a-table
-          class="mt20"
-          :dataSource="workDays"
-          :columns="columns"
-          :pagination="false"
-        >
-          <template #bodyCell="{ record, column }">
-            <template v-if="column.key === 'operation'">
-              <a-button
-                type="text"
-                danger
-                @Click="deleteRow(workDays, record)"
-              >删除</a-button>
-            </template>
-            <template v-if="column.dataIndex === 'date' && !record.date">
-              <div>
-                <a-date-picker
-                  v-model:value="record.date"
-                  placeholder="请选择日期"
-                  valueFormat="YYYY-MM-DD"
-                />
-              </div>
-            </template>
-            <template v-if="column.dataIndex === 'title' && !record.title">
-              <div>
-                <a-input
-                  v-model:value="record.title"
-                  placeholder="请输入事件"
-                ></a-input>
-              </div>
-            </template>
-          </template>
-        </a-table>
-
-      </div>
-
       <div class="yuki-get-off-time">
         <h1>请编辑你的下班时间</h1>
         <a-time-picker
@@ -105,20 +68,19 @@
 </template>
 
 <script setup lang="ts">
-import { Button as aButton, Table as aTable, DatePicker as aDatePicker, Input as aInput, TimePicker as aTimePicker } from 'ant-design-vue';
+import { Button as aButton, Table as aTable, DatePicker as aDatePicker, Input as aInput, TimePicker as aTimePicker, message } from 'ant-design-vue';
 // components: { aButton, aTable, aDatePicker, aInput, aTimePicker },
 // components: { aButton, aTable, aDatePicker, aInput, aTimePicker },
 import type { Ref } from 'vue';
 import { onMounted, reactive, ref } from 'vue';
-onMounted(() => {
-  getOffTimeInfo()
-  setInterval(() => { getOffTimeInfo() }, 1000)
-});
+
 // const showDiv = reactive({ showDiv: false })
 let showDiv: Ref<boolean> = ref(false)
 let mainText: Ref<string> = ref('')
+let isEdit: Ref<boolean> = ref(false)
 let getOffTime: string = '18:00:00'
-let columns: { title: string, dataIndex?: string, width?: string, key?: string }[] = reactive(
+let newDays: { date: string, title: string } = reactive({ date: '', title: '' })
+let columns = reactive(
   [
     {
       title: '日期',
@@ -132,11 +94,11 @@ let columns: { title: string, dataIndex?: string, width?: string, key?: string }
     {
       title: '操作',
       key: 'operation',
-      width: '60px'
+      width: '60px',
     },
   ]
 )
-let holidays: { date: string, title: string }[] = reactive(
+let holidays: Ref<{ date: string, title: string }[]> = ref(
   [
     {
       date: '2023-04-05',
@@ -160,7 +122,7 @@ let holidays: { date: string, title: string }[] = reactive(
     },
   ]
 ) // 初始化数组
-let workDays: { date: string, title: string }[] = reactive(
+let workDays: Ref<{ date: string, title: string }[]> = ref(
   [
     {
       date: '2023-04-23',
@@ -224,14 +186,41 @@ let workDays: { date: string, title: string }[] = reactive(
     },
   ]
 )
+let dataMap: Record<string, any> = reactive({
+  1: { list: holidays.value, title: '法定节假日' },
+  2: { list: workDays.value, title: '额外工作日' },
+})
+onMounted(() => {
+  let oldData = localStorage.getItem('dataMap')
+  if (oldData) {
+    let arr = JSON.parse(oldData) || []
+    holidays.value = arr[1]?.list || []
+    workDays.value = arr[2]?.list || []
+  }
+  dataMap = {
+    1: { list: holidays.value, title: '法定节假日' },
+    2: { list: workDays.value, title: '额外工作日' },
+  }
 
-function deleteRow(listName: Array<any>, item: { title: string }) {
-  listName = listName.filter((day: { title: string }) => item.title !== day.title)
+  getOffTimeInfo()
+  setInterval(() => { getOffTimeInfo() }, 1000)
+});
+function deleteRow(list: Array<any>, item: { title: string }) {
+  let index = list.findIndex((day: { title: string }) => item.title === day.title)
+  list.splice(index, 1)
+  isEdit.value = false
+  localStorage.setItem('dataMap', JSON.stringify(dataMap))
 }
 function addItem(data: Array<any>) {
-  console.log(data);
-  if (!data[data.length - 1]?.title || !data[data.length - 1]?.date) return
-  data && data.push({ date: '', title: '', });
+  if (!data[data.length - 1]?.title || !data[data.length - 1]?.date) return // 最后一行为空时不添加新行
+  data && data.push({ date: '', title: '', isEdit: true }) // 添加空行;
+  isEdit.value = true // 开启编辑状态
+}
+function saveRow(item: { title: string, date: string, isEdit?: boolean }) {
+  if (!item.title || !item.date) return message.warning('请填写完整~') // 为空时不保存
+  isEdit.value = false
+  delete item.isEdit
+  localStorage.setItem('dataMap', JSON.stringify(dataMap))
 }
 function getOffTimeInfo() {
   const now = new Date();
@@ -284,7 +273,7 @@ function getHolidayInfo() {
     '-' +
     currentDate.getDate();
   let content = '';
-  holidays.forEach((element) => {
+  holidays.value.forEach((element) => {
     if (new Date(day).getTime() > new Date(element.date).getTime()) {
       return;
     }
@@ -322,7 +311,7 @@ function getHolidayInfo() {
   diffSatDay = Math.floor(diffSatDay);
   diffSatDay--; // 不算今天
 
-  workDays.forEach((element) => {
+  workDays.value.forEach((element) => {
     if (element.date === saturday) {
       content +=
         '\n' + saturday + ' , ' + element.title + ', 你还不能放假哦';
