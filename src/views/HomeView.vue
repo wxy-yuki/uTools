@@ -313,7 +313,7 @@ function getHolidayInfo() {
   let saturday =
     nextSaturday.getFullYear() +
     '-' +
-    (nextSaturday.getMonth() + 1).toString().padStart(2, '0') +
+    String(nextSaturday.getMonth() + 1).padStart(2, '0') +
     '-' +
     String(nextSaturday.getDate()).padStart(2, '0');
   let saturdayTime = nextSaturday.getTime();
