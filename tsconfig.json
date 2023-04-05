@@ -5,6 +5,11 @@
     "src/**/*",
     "src/**/*.vue"
   ],
+  "lib": [
+    "es6",
+    "es2017.string",
+    "dom"
+  ],
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
